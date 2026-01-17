@@ -11,10 +11,15 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	if err := godotenv.Load(); err != nil {
+		logger.Info(".env file not loaded, using system environment variables")
+	}
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		logger.Error("DATABASE_URL environment variable required")
