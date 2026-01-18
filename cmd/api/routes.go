@@ -9,6 +9,7 @@ func (a *API) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/v1/users", a.GetUsersHandler)
 	mux.HandleFunc("GET /api/v1/transactions", a.GetTransactionsHandler)
+	mux.HandleFunc("POST /api/v1/users", a.CreateUserHandler)
 
 	return mux
 }

@@ -1,20 +1,21 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+	"time"
 )
 
 func (a *API) GetTransactionsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
 	res, err := a.service.GetTransactions(ctx)
 	if err != nil {
-		http.Error(w, "Failed to fetch transactions", http.StatusInternalServerError)
+		a.logger.Error("Failed to fetch transactions", "error", err)
+		a.httpError(w, http.StatusInternalServerError, "Failed to fetch transactions")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		a.logger.Error("Failed to encode transactions response", "error", err)
-	}
+	a.jsonResponse(w, http.StatusOK, res)
 }
