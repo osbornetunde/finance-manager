@@ -38,33 +38,42 @@ func main() {
 	srv := service.NewService(db, logger)
 	api := NewAPI(srv, logger)
 	handler := api.Router()
+	handler = api.TimeoutMiddleware(handler, 15*time.Second)
+	handler = api.LoggingMiddleware(handler)
+	handler = api.RequestIDMiddleware(handler)
 
 	server := &http.Server{
 		Addr:         ":4000",
 		Handler:      handler,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 20 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	serverErr := make(chan error, 1)
+
 	go func() {
 		logger.Info("listening on", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server listen failed", "err", err)
-			os.Exit(1) // Exit if the server fails to start
+			serverErr <- err
 		}
 	}()
 
-	<-quit
-	logger.Info("shutting down server...")
+	select {
+	case <-quit:
+		logger.Info("shutting down server...")
+	case err := <-serverErr:
+		logger.Error("server listen failed", "err", err)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("server shutdown failed", "err", err)
-		os.Exit(1)
+	} else {
+		logger.Info("server stopped gracefully")
 	}
-
-	logger.Info("server stopped gracefully")
 }

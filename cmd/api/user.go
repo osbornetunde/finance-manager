@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	appErrors "finance-manager/internal/errors"
 	"finance-manager/internal/service"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,11 @@ type API struct {
 	logger  *slog.Logger
 }
 
+type CreateUserRequest struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 func NewAPI(srv service.Service, logger *slog.Logger) *API {
 	return &API{
 		service: srv,
@@ -19,17 +25,59 @@ func NewAPI(srv service.Service, logger *slog.Logger) *API {
 	}
 }
 
+func (a *API) jsonResponse(w http.ResponseWriter, status int, res any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		a.logger.Error("Failed to encode JSON response", "error", err)
+	}
+}
+
+func (a *API) httpError(w http.ResponseWriter, status int, message string) {
+	a.jsonResponse(w, status, map[string]string{"error": message})
+}
+
 func (a *API) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	res, err := a.service.GetUsers(ctx)
 	if err != nil {
-		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
+		a.logger.Error("Failed to fetch users", "error", err)
+		a.httpError(w, http.StatusInternalServerError, "Failed to fetch users")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		a.logger.Error("Failed to encode users response", "error", err)
+	a.jsonResponse(w, http.StatusOK, res)
+}
+
+func (a *API) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var body CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		a.httpError(w, http.StatusBadRequest, "Invalid request body")
+		return
 	}
+
+	res, err := a.service.CreateUser(ctx, body.Name, body.Email)
+	if err != nil {
+		if appErrors.IsDuplicateEmail(err) {
+			a.logger.Debug("Duplicate email attempted", "email", body.Email)
+			a.httpError(w, http.StatusConflict, "Email already exists")
+			return
+		}
+		if appErrors.IsValidationError(err) {
+			a.logger.Debug("Validation failed", "error", err)
+			a.httpError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		a.logger.Error("Failed to create user", "error", err)
+		a.httpError(w, http.StatusInternalServerError, "Failed to create user")
+		return
+	}
+
+	a.jsonResponse(w, http.StatusCreated, res)
 }

@@ -10,6 +10,7 @@ import (
 type Service interface {
 	GetUsers(ctx context.Context) ([]*core.User, error)
 	GetTransactions(ctx context.Context) ([]*core.Transaction, error)
+	CreateUser(ctx context.Context, name, email string) (*core.User, error)
 }
 
 type service struct {
@@ -25,19 +26,16 @@ func NewService(data data.Data, logger *slog.Logger) Service {
 }
 
 func (s *service) GetUsers(ctx context.Context) ([]*core.User, error) {
-	users, err := s.data.GetUsers(ctx)
-	if err != nil {
-		s.logger.Error("Failed to return users", "error", err)
-		return nil, err
-	}
-	return users, nil
+	return s.data.GetUsers(ctx)
 }
 
 func (s *service) GetTransactions(ctx context.Context) ([]*core.Transaction, error) {
-	transactions, err := s.data.GetTransactions(ctx)
-	if err != nil {
-		s.logger.Error("Failed to return transactions", "error", err)
+	return s.data.GetTransactions(ctx)
+}
+
+func (s *service) CreateUser(ctx context.Context, name, email string) (*core.User, error) {
+	if err := validateCreateUser(name, email); err != nil {
 		return nil, err
 	}
-	return transactions, nil
+	return s.data.CreateUser(ctx, name, email)
 }
