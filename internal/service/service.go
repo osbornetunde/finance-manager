@@ -1,4 +1,4 @@
-package internal
+package service
 
 import (
 	"context"
@@ -44,8 +44,8 @@ func (s *service) GetTransactions(ctx context.Context) ([]*core.Transaction, err
 }
 
 func (s *service) CreateUser(ctx context.Context, name, email string) (*core.User, error) {
-	// Validate input using centralized validation
-	if err := ValidateCreateUser(name, email); err != nil {
+	// Validate input
+	if err := validateCreateUser(name, email); err != nil {
 		return nil, err
 	}
 

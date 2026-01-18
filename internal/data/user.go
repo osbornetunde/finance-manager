@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 	"errors"
-	appErrors "finance-manager/internal/errors"
 	"finance-manager/internal/core"
+	appErrors "finance-manager/internal/errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,7 +22,7 @@ func (u *UserModel) GetUsers(ctx context.Context) ([]*core.User, error) {
 	}
 	defer rows.Close()
 
-	var users []*core.User
+	users := make([]*core.User, 0)
 
 	for rows.Next() {
 		user := &core.User{}

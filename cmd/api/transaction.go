@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"net/http"
-	"time"
 )
 
 func (a *API) GetTransactionsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+	ctx := r.Context()
 
 	res, err := a.service.GetTransactions(ctx)
 	if err != nil {

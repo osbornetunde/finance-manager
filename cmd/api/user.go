@@ -1,17 +1,15 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"finance-manager/internal"
 	appErrors "finance-manager/internal/errors"
+	"finance-manager/internal/service"
 	"log/slog"
 	"net/http"
-	"time"
 )
 
 type API struct {
-	service internal.Service
+	service service.Service
 	logger  *slog.Logger
 }
 
@@ -20,7 +18,7 @@ type CreateUserRequest struct {
 	Email string `json:"email"`
 }
 
-func NewAPI(srv internal.Service, logger *slog.Logger) *API {
+func NewAPI(srv service.Service, logger *slog.Logger) *API {
 	return &API{
 		service: srv,
 		logger:  logger,
@@ -40,8 +38,7 @@ func (a *API) httpError(w http.ResponseWriter, status int, message string) {
 }
 
 func (a *API) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+	ctx := r.Context()
 
 	res, err := a.service.GetUsers(ctx)
 	if err != nil {
@@ -54,8 +51,7 @@ func (a *API) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+	ctx := r.Context()
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 
@@ -67,17 +63,18 @@ func (a *API) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.service.CreateUser(ctx, body.Name, body.Email)
 	if err != nil {
-		a.logger.Error("Failed to create user", "error", err)
-
 		if appErrors.IsDuplicateEmail(err) {
+			a.logger.Debug("Duplicate email attempted", "email", body.Email)
 			a.httpError(w, http.StatusConflict, "Email already exists")
 			return
 		}
 		if appErrors.IsValidationError(err) {
+			a.logger.Debug("Validation failed", "error", err)
 			a.httpError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
+		a.logger.Error("Failed to create user", "error", err)
 		a.httpError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}

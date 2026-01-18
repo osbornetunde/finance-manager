@@ -1,4 +1,4 @@
-package internal
+package service
 
 import (
 	appErrors "finance-manager/internal/errors"
@@ -12,7 +12,7 @@ const (
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-func ValidateName(name string) error {
+func validateName(name string) error {
 	if name == "" {
 		return appErrors.NewValidationError("name", "name is required")
 	}
@@ -25,7 +25,7 @@ func ValidateName(name string) error {
 	return nil
 }
 
-func ValidateEmail(email string) error {
+func validateEmail(email string) error {
 	if email == "" {
 		return appErrors.NewValidationError("email", "email is required")
 	}
@@ -35,11 +35,11 @@ func ValidateEmail(email string) error {
 	return nil
 }
 
-func ValidateCreateUser(name, email string) error {
-	if err := ValidateName(name); err != nil {
+func validateCreateUser(name, email string) error {
+	if err := validateName(name); err != nil {
 		return err
 	}
-	if err := ValidateEmail(email); err != nil {
+	if err := validateEmail(email); err != nil {
 		return err
 	}
 	return nil

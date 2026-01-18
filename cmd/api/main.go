@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"finance-manager/internal"
 	"finance-manager/internal/data"
+	"finance-manager/internal/service"
 	"log/slog"
 	"net/http"
 	"os"
@@ -35,15 +35,16 @@ func main() {
 	logger.Info("Successfully connected to the Finance Manager database!")
 
 	db := data.NewModels(dbPool)
-	srv := internal.NewService(db, logger)
+	srv := service.NewService(db, logger)
 	api := NewAPI(srv, logger)
 	handler := api.Router()
+	handler = api.TimeoutMiddleware(handler, 15*time.Second)
 
 	server := &http.Server{
 		Addr:         ":4000",
 		Handler:      handler,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 20 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 	quit := make(chan os.Signal, 1)
