@@ -39,6 +39,8 @@ func main() {
 	api := NewAPI(srv, logger)
 	handler := api.Router()
 	handler = api.TimeoutMiddleware(handler, 15*time.Second)
+	handler = api.LoggingMiddleware(handler)
+	handler = api.RequestIDMiddleware(handler)
 
 	server := &http.Server{
 		Addr:         ":4000",
