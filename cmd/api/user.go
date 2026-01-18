@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"finance-manager/internal"
 	appErrors "finance-manager/internal/errors"
-	"finance-manager/internal/service"
 	"log/slog"
 	"net/http"
 	"time"
 )
 
 type API struct {
-	service service.Service
+	service internal.Service
 	logger  *slog.Logger
 }
 
@@ -20,7 +20,7 @@ type CreateUserRequest struct {
 	Email string `json:"email"`
 }
 
-func NewAPI(srv service.Service, logger *slog.Logger) *API {
+func NewAPI(srv internal.Service, logger *slog.Logger) *API {
 	return &API{
 		service: srv,
 		logger:  logger,

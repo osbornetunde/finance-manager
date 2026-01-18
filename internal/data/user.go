@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 	"errors"
-	"finance-manager/internal/core"
 	appErrors "finance-manager/internal/errors"
+	"finance-manager/internal/core"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"

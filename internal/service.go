@@ -1,12 +1,10 @@
-package service
+package internal
 
 import (
 	"context"
 	"finance-manager/internal/core"
 	"finance-manager/internal/data"
-	appErrors "finance-manager/internal/errors"
 	"log/slog"
-	"regexp"
 )
 
 type Service interface {
@@ -45,32 +43,10 @@ func (s *service) GetTransactions(ctx context.Context) ([]*core.Transaction, err
 	return transactions, nil
 }
 
-// Email validation regex pattern
-var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-
-const (
-	minNameLength = 2
-	maxNameLength = 100
-)
-
 func (s *service) CreateUser(ctx context.Context, name, email string) (*core.User, error) {
-	// Validate name
-	if name == "" {
-		return nil, appErrors.NewValidationError("name", "name is required")
-	}
-	if len(name) < minNameLength {
-		return nil, appErrors.NewValidationError("name", "name must be at least 2 characters")
-	}
-	if len(name) > maxNameLength {
-		return nil, appErrors.NewValidationError("name", "name must not exceed 100 characters")
-	}
-
-	// Validate email
-	if email == "" {
-		return nil, appErrors.NewValidationError("email", "email is required")
-	}
-	if !emailRegex.MatchString(email) {
-		return nil, appErrors.NewValidationError("email", "invalid email format")
+	// Validate input using centralized validation
+	if err := ValidateCreateUser(name, email); err != nil {
+		return nil, err
 	}
 
 	user, err := s.data.CreateUser(ctx, name, email)

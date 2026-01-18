@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"finance-manager/internal"
 	"finance-manager/internal/data"
-	"finance-manager/internal/service"
 	"log/slog"
 	"net/http"
 	"os"
@@ -35,7 +35,7 @@ func main() {
 	logger.Info("Successfully connected to the Finance Manager database!")
 
 	db := data.NewModels(dbPool)
-	srv := service.NewService(db, logger)
+	srv := internal.NewService(db, logger)
 	api := NewAPI(srv, logger)
 	handler := api.Router()
 
