@@ -12,6 +12,20 @@ type contextKey string
 
 const requestIDKey contextKey = "request_id"
 
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
+	return &responseRecorder{w, http.StatusOK}
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.statusCode = code
+	rr.ResponseWriter.WriteHeader(code)
+}
+
 func (a *API) TimeoutMiddleware(next http.Handler, timeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -35,13 +49,17 @@ func (a *API) LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		next.ServeHTTP(w, r)
+		rr := newResponseRecorder(w)
+
+		next.ServeHTTP(rr, r)
 
 		a.logger.Info("request",
 			"method", r.Method,
 			"path", r.URL.Path,
+			"status", rr.statusCode,
 			"duration", time.Since(start).String(),
 			"request_id", GetRequestID(r.Context()),
+			"user_agent", r.UserAgent(),
 		)
 	})
 }
