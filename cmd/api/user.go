@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	appErrors "finance-manager/internal/errors"
 	"finance-manager/internal/service"
+	"io"
 	"log/slog"
 	"net/http"
 )
@@ -11,6 +12,7 @@ import (
 type API struct {
 	service service.Service
 	logger  *slog.Logger
+	idem    *idempotencyStore
 }
 
 type CreateUserRequest struct {
@@ -22,6 +24,7 @@ func NewAPI(srv service.Service, logger *slog.Logger) *API {
 	return &API{
 		service: srv,
 		logger:  logger,
+		idem:    newIdempotencyStore(),
 	}
 }
 
@@ -56,7 +59,13 @@ func (a *API) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 
 	var body CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		a.httpError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		a.httpError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}

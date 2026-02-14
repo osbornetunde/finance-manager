@@ -3,6 +3,7 @@ package service
 import (
 	appErrors "finance-manager/internal/errors"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -41,6 +42,22 @@ func validateCreateUser(name, email string) error {
 	}
 	if err := validateEmail(email); err != nil {
 		return err
+	}
+	return nil
+}
+
+func validateCreateTransaction(userID, amount, categoryID int64, description string) error {
+	if userID <= 0 {
+		return appErrors.NewValidationError("user_id", "user_id must be greater than 0")
+	}
+	if amount <= 0 {
+		return appErrors.NewValidationError("amount", "amount must be a positive integer")
+	}
+	if categoryID <= 0 {
+		return appErrors.NewValidationError("category_id", "category_id must be greater than 0")
+	}
+	if strings.TrimSpace(description) == "" {
+		return appErrors.NewValidationError("description", "description is required")
 	}
 	return nil
 }

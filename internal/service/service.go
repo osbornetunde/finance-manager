@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"finance-manager/internal/core"
 	"finance-manager/internal/data"
 	"log/slog"
@@ -11,6 +12,7 @@ type Service interface {
 	GetUsers(ctx context.Context) ([]*core.User, error)
 	GetTransactions(ctx context.Context) ([]*core.Transaction, error)
 	CreateUser(ctx context.Context, name, email string) (*core.User, error)
+	CreateTransaction(ctx context.Context, userId, amount, categoryId int64, description string, metadata json.RawMessage, tags []string) (*core.Transaction, error)
 }
 
 type service struct {
@@ -38,4 +40,11 @@ func (s *service) CreateUser(ctx context.Context, name, email string) (*core.Use
 		return nil, err
 	}
 	return s.data.CreateUser(ctx, name, email)
+}
+
+func (s *service) CreateTransaction(ctx context.Context, userId, amount, categoryId int64, description string, metadata json.RawMessage, tags []string) (*core.Transaction, error) {
+	if err := validateCreateTransaction(userId, amount, categoryId, description); err != nil {
+		return nil, err
+	}
+	return s.data.CreateTransaction(ctx, userId, amount, categoryId, description, metadata, tags)
 }
