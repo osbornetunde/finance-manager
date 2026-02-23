@@ -7,7 +7,9 @@ import (
 
 var (
 	// User errors
-	ErrDuplicateEmail = errors.New("email already exists")
+	ErrDuplicateEmail           = errors.New("email already exists")
+	ErrInvalidUserReference     = errors.New("invalid user reference")
+	ErrInvalidCategoryReference = errors.New("invalid category reference")
 
 	// Generic errors
 	ErrDatabaseOperation = errors.New("database operation failed")
@@ -40,6 +42,14 @@ func IsValidationError(err error) bool {
 
 func IsDuplicateEmail(err error) bool {
 	return errors.Is(err, ErrDuplicateEmail)
+}
+
+func IsInvalidUserReference(err error) bool {
+	return errors.Is(err, ErrInvalidUserReference)
+}
+
+func IsInvalidCategoryReference(err error) bool {
+	return errors.Is(err, ErrInvalidCategoryReference)
 }
 
 func IsDatabaseError(err error) bool {
