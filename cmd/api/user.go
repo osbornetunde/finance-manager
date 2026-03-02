@@ -12,7 +12,7 @@ import (
 type API struct {
 	service service.Service
 	logger  *slog.Logger
-	idem    *idempotencyStore
+	dedup   *deduplicator
 }
 
 type CreateUserRequest struct {
@@ -24,7 +24,7 @@ func NewAPI(srv service.Service, logger *slog.Logger) *API {
 	return &API{
 		service: srv,
 		logger:  logger,
-		idem:    newIdempotencyStore(),
+		dedup:   newDeduplicator(),
 	}
 }
 
