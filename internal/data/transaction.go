@@ -6,7 +6,6 @@ import (
 	"errors"
 	"finance-manager/internal/core"
 	appErrors "finance-manager/internal/errors"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -39,21 +38,21 @@ func (t *TransactionModel) GetTransactions(ctx context.Context) ([]*core.Transac
 	return transactions, nil
 }
 
-func (t *TransactionModel) CreateTransaction(ctx context.Context, userId, amount, categoryId int64, description string, metadata json.RawMessage, tags []string) (*core.Transaction, error) {
+func (t *TransactionModel) CreateTransaction(ctx context.Context, userId, amount, categoryId int64, description string, metadata json.RawMessage, tags []string, createdAt time.Time) (*core.Transaction, error) {
 	q := `INSERT INTO transactions (user_id, amount, description, date, category_id, metadata, tags) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, amount, description, date, category_id, metadata, tags`
 
 	var transaction core.Transaction
-	if err := t.db.QueryRow(ctx, q, userId, amount, description, time.Now(),
+	if err := t.db.QueryRow(ctx, q, userId, amount, description, createdAt,
 		categoryId, metadata, tags).Scan(&transaction.ID,
 		&transaction.UserID, &transaction.Amount,
 		&transaction.Description, &transaction.Date, &transaction.CategoryID, &transaction.Metadata, &transaction.Tags); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-			constraint := strings.ToLower(pgErr.ConstraintName)
-			if strings.Contains(constraint, "user") {
+			constraint := pgErr.ConstraintName
+			if constraint == "transactions_user_id_fkey" {
 				return nil, appErrors.ErrInvalidUserReference
 			}
-			if strings.Contains(constraint, "category") {
+			if constraint == "transactions_category_id_fkey" {
 				return nil, appErrors.ErrInvalidCategoryReference
 			}
 		}

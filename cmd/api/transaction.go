@@ -1,17 +1,19 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	appErrors "finance-manager/internal/errors"
-	"fmt"
 	"io"
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
+
+const transactionDedupTTL = 60 * time.Second
 
 type CreateTransactionRequest struct {
 	UserID      int64           `json:"user_id"`
@@ -51,13 +53,14 @@ func (a *API) CreateTransactionHandler(w http.ResponseWriter, r *http.Request) {
 		a.httpError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	requestKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	requestKey := strings.TrimSpace(r.Header.Get("X-Deduplication-Key"))
 	if requestKey == "" {
 		requestKey = "fp:" + buildTransactionFingerprint(body)
 	} else {
-		requestKey = "idem:" + requestKey
+		requestKey = "dedup:" + requestKey
 	}
-	if a.idem.seenRecently(requestKey, 60*time.Second) {
+	if a.dedup.seenRecently(requestKey, transactionDedupTTL) {
+		w.Header().Set("Retry-After", strconv.FormatInt(int64(transactionDedupTTL/time.Second), 10))
 		a.logger.Debug("Duplicate transaction request blocked", "key", requestKey)
 		a.httpError(w, http.StatusConflict, "Duplicate transaction request")
 		return
@@ -66,11 +69,13 @@ func (a *API) CreateTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	res, err := a.service.CreateTransaction(ctx, body.UserID, body.Amount, body.CategoryID, body.Description, body.Metadata, body.Tags)
 	if err != nil {
 		if appErrors.IsValidationError(err) {
+			a.dedup.forget(requestKey)
 			a.logger.Debug("Validation failed", "error", err)
 			a.httpError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if appErrors.IsInvalidUserReference(err) || appErrors.IsInvalidCategoryReference(err) {
+			a.dedup.forget(requestKey)
 			a.logger.Debug("Invalid transaction reference", "error", err)
 			a.httpError(w, http.StatusBadRequest, err.Error())
 			return
@@ -83,21 +88,34 @@ func (a *API) CreateTransactionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildTransactionFingerprint(body CreateTransactionRequest) string {
-	metadata := strings.TrimSpace(string(body.Metadata))
+	var normalizedMetadata any
 	if len(body.Metadata) > 0 {
-		var compact bytes.Buffer
-		if err := json.Compact(&compact, body.Metadata); err == nil {
-			metadata = compact.String()
+		if err := json.Unmarshal(body.Metadata, &normalizedMetadata); err != nil {
+			normalizedMetadata = strings.TrimSpace(string(body.Metadata))
 		}
 	}
-	payload := fmt.Sprintf("%d|%d|%d|%s|%s|%s",
-		body.UserID,
-		body.Amount,
-		body.CategoryID,
-		strings.TrimSpace(body.Description),
-		metadata,
-		strings.Join(body.Tags, ","),
-	)
-	sum := sha256.Sum256([]byte(payload))
+
+	tags := make([]string, len(body.Tags))
+	copy(tags, body.Tags)
+	slices.Sort(tags)
+
+	payload := struct {
+		UserID      int64    `json:"user_id"`
+		Amount      int64    `json:"amount"`
+		CategoryID  int64    `json:"category_id"`
+		Description string   `json:"description"`
+		Metadata    any      `json:"metadata,omitempty"`
+		Tags        []string `json:"tags,omitempty"`
+	}{
+		UserID:      body.UserID,
+		Amount:      body.Amount,
+		CategoryID:  body.CategoryID,
+		Description: strings.TrimSpace(body.Description),
+		Metadata:    normalizedMetadata,
+		Tags:        tags,
+	}
+
+	b, _ := json.Marshal(payload)
+	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }

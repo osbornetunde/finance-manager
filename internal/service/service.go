@@ -6,6 +6,7 @@ import (
 	"finance-manager/internal/core"
 	"finance-manager/internal/data"
 	"log/slog"
+	"time"
 )
 
 type Service interface {
@@ -43,8 +44,8 @@ func (s *service) CreateUser(ctx context.Context, name, email string) (*core.Use
 }
 
 func (s *service) CreateTransaction(ctx context.Context, userId, amount, categoryId int64, description string, metadata json.RawMessage, tags []string) (*core.Transaction, error) {
-	if err := validateCreateTransaction(userId, amount, categoryId, description); err != nil {
+	if err := validateCreateTransaction(userId, amount, categoryId, description, metadata, tags); err != nil {
 		return nil, err
 	}
-	return s.data.CreateTransaction(ctx, userId, amount, categoryId, description, metadata, tags)
+	return s.data.CreateTransaction(ctx, userId, amount, categoryId, description, metadata, tags, time.Now())
 }
